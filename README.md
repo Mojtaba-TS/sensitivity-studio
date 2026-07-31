@@ -29,7 +29,7 @@ Public requests do not execute inside the FastAPI process. Each operation is han
 - a 100 KB source limit and AST/literal-size limits;
 - one concurrent solver job by default;
 - a wall-clock timeout;
-- Linux CPU, address-space, file-size, and file-descriptor limits;
+- Linux CPU, resident-memory, file-size, and file-descriptor limits;
 - non-root execution in the production Docker container.
 
 This is strong application-level hardening, not a VM-grade security boundary. For an unrestricted public Python service, use a dedicated microVM/container sandbox provider or replace Python input with a declarative model format.

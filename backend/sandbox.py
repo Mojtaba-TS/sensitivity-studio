@@ -3,6 +3,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import os
 import threading
+import time
 from typing import Any
 
 from fastapi import HTTPException
@@ -23,12 +24,24 @@ def _apply_linux_limits() -> None:
         return
     import resource
 
-    memory_bytes = MEMORY_LIMIT_MB * 1024 * 1024
     resource.setrlimit(resource.RLIMIT_CPU, (CPU_LIMIT_SECONDS, CPU_LIMIT_SECONDS + 1))
-    resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
     resource.setrlimit(resource.RLIMIT_FSIZE, (1_048_576, 1_048_576))
     resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
     os.nice(10)
+
+
+def _linux_resident_bytes(process_id: int) -> int | None:
+    """Read physical memory without constraining native libraries' virtual mappings."""
+    if os.name == "nt":
+        return None
+    try:
+        with open(f"/proc/{process_id}/status", encoding="utf-8") as status_file:
+            for line in status_file:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) * 1024
+    except (FileNotFoundError, PermissionError, ProcessLookupError, ValueError):
+        return None
+    return None
 
 
 def _worker(operation: str, payload: dict[str, Any], connection: Any) -> None:
@@ -61,13 +74,28 @@ def run_sandboxed(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
     try:
         process.start()
         sending.close()
-        if not receiving.poll(WALL_TIMEOUT_SECONDS):
-            process.terminate()
-            process.join(timeout=2)
-            if process.is_alive():
-                process.kill()
+
+        deadline = time.monotonic() + WALL_TIMEOUT_SECONDS
+        memory_limit_bytes = MEMORY_LIMIT_MB * 1024 * 1024
+        while not receiving.poll(0.1):
+            if not process.is_alive():
                 process.join(timeout=1)
-            raise HTTPException(status_code=408, detail=f"Analysis exceeded the {WALL_TIMEOUT_SECONDS}-second sandbox limit.")
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"The isolated model worker exited unexpectedly (code {process.exitcode}).",
+                )
+            resident_bytes = _linux_resident_bytes(process.pid)
+            if resident_bytes is not None and resident_bytes > memory_limit_bytes:
+                process.terminate()
+                process.join(timeout=2)
+                raise HTTPException(status_code=422, detail="The model exceeded the sandbox memory limit.")
+            if time.monotonic() >= deadline:
+                process.terminate()
+                process.join(timeout=2)
+                if process.is_alive():
+                    process.kill()
+                    process.join(timeout=1)
+                raise HTTPException(status_code=408, detail=f"Analysis exceeded the {WALL_TIMEOUT_SECONDS}-second sandbox limit.")
 
         response = receiving.recv()
         process.join(timeout=2)
