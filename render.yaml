@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: pyomo-sensitivity-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: SANDBOX_TIMEOUT_SECONDS
+        value: "60"
+      - key: SANDBOX_CPU_SECONDS
+        value: "45"
+      - key: SANDBOX_MEMORY_MB
+        value: "384"
+      - key: SANDBOX_MAX_CONCURRENT
+        value: "1"
