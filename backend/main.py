@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from time import perf_counter
 from typing import Any
 
@@ -116,12 +117,55 @@ def apply_parameters(model: pyo.ConcreteModel, updates: dict[str, float]) -> Non
         parameter.set_value(value)
 
 
+TIME_SET_TOKENS = {
+    "t",
+    "time",
+    "times",
+    "period",
+    "periods",
+    "year",
+    "years",
+    "quarter",
+    "quarters",
+    "month",
+    "months",
+    "week",
+    "weeks",
+    "day",
+    "days",
+    "date",
+    "dates",
+    "hour",
+    "hours",
+    "stage",
+    "stages",
+    "season",
+    "seasons",
+    "horizon",
+    "horizons",
+}
+
+
+def name_tokens(name: str) -> list[str]:
+    local_name = name.rsplit(".", 1)[-1]
+    separated = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", local_name)
+    return [token for token in re.split(r"[^a-z0-9]+", separated.lower()) if token]
+
+
 def is_time_set(name: str) -> bool:
-    normalized = name.lower()
-    return normalized in {"t", "time", "times"} or any(
-        token in normalized
-        for token in ("period", "year", "month", "week", "day", "date", "hour")
-    )
+    """Recognize complete time-related name tokens, never arbitrary substrings."""
+    return any(token in TIME_SET_TOKENS for token in name_tokens(name))
+
+
+def explicit_time_set_name(model: pyo.ConcreteModel) -> str | None:
+    """Allow models with domain-specific names to declare their time dimension."""
+    configured = getattr(model, "sensitivity_time_set", None)
+    if configured is None:
+        return None
+    if isinstance(configured, str):
+        return configured
+    name = getattr(configured, "name", None)
+    return name if isinstance(name, str) else None
 
 
 def serialize_period(value: Any) -> str | int | float:
@@ -132,6 +176,7 @@ def serialize_period(value: Any) -> str | int | float:
 
 def time_series_metadata(model: pyo.ConcreteModel) -> list[dict[str, Any]]:
     series: list[dict[str, Any]] = []
+    configured_time_set = explicit_time_set_name(model)
     for component_type, kind in ((pyo.Var, "variable"), (pyo.Expression, "expression")):
         for component in model.component_objects(component_type, active=True):
             if not component.is_indexed():
@@ -139,10 +184,17 @@ def time_series_metadata(model: pyo.ConcreteModel) -> list[dict[str, Any]]:
             dimensions = list(component.index_set().subsets())
             if not dimensions or any(dimension.dimen != 1 for dimension in dimensions):
                 continue
-            time_positions = [
-                index for index, dimension in enumerate(dimensions)
-                if is_time_set(dimension.name)
-            ]
+            if configured_time_set:
+                time_positions = [
+                    index for index, dimension in enumerate(dimensions)
+                    if dimension.name == configured_time_set
+                    or dimension.name.rsplit(".", 1)[-1] == configured_time_set
+                ]
+            else:
+                time_positions = [
+                    index for index, dimension in enumerate(dimensions)
+                    if is_time_set(dimension.name)
+                ]
             if not time_positions:
                 continue
             time_position = time_positions[-1]
@@ -167,6 +219,7 @@ def time_series_metadata(model: pyo.ConcreteModel) -> list[dict[str, Any]]:
                         "period": serialize_period(period),
                         "value": sum(values) if values else None,
                         "mean": sum(values) / len(values) if values else None,
+                        "observation_count": len(values),
                     }
                 )
 
@@ -176,6 +229,7 @@ def time_series_metadata(model: pyo.ConcreteModel) -> list[dict[str, Any]]:
                     "kind": kind,
                     "time_set": time_dimension.name,
                     "aggregation": "sum",
+                    "time_detection": "explicit" if configured_time_set else "automatic",
                     "collapsed_dimensions": [
                         dimension.name
                         for index, dimension in enumerate(dimensions)

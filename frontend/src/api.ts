@@ -1,11 +1,12 @@
 export type Parameter = { name: string; value: number }
 export type Objective = { name: string; sense: "minimize" | "maximize"; active: boolean }
-export type TimeSeriesPoint = { period: string | number; value: number | null; mean: number | null }
+export type TimeSeriesPoint = { period: string | number; value: number | null; mean: number | null; observation_count: number }
 export type TimeSeries = {
   name: string
   kind: "variable" | "expression"
   time_set: string
   aggregation: "sum"
+  time_detection: "automatic" | "explicit"
   collapsed_dimensions: string[]
   points: TimeSeriesPoint[]
 }

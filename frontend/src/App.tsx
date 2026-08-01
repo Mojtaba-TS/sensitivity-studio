@@ -223,7 +223,7 @@ model.limit = pyo.Constraint(expr=model.x <= model.capacity)
 model.profit = pyo.Objective(expr=12 * model.x, sense=pyo.maximize)`
   const biObjective = `model.total_cost = pyo.Objective(expr=cost_expression, sense=pyo.minimize)
 model.total_emissions = pyo.Objective(expr=emission_expression, sense=pyo.minimize)`
-  return <Dialog title="Pyomo model guide" subtitle="How to prepare LP, MILP, bi-objective, and time-indexed models for Sensitivity Studio." onClose={close} className="model-guide-dialog" width="960px" footerButtons={[{ buttonType: "primary", content: "Done", onClick: close }]}><Dialog.Body><div className="model-guide"><div className="guide-callout"><CheckCircleFillIcon size={18} /><div><strong>The samples use the real application contract</strong><p>Every starter model is parsed by Pyomo and verified with HiGHS—nothing in the library is a mocked result.</p></div></div><div className="guide-grid"><section><span className="guide-number">01</span><h3>Required structure</h3><p>Create a concrete model and expose it with the exact variable name <code>model</code>. Imports may use <code>pyomo.environ</code> or named Pyomo components.</p><pre><code>{basicModel}</code></pre></section><section><span className="guide-number">02</span><h3>Sensitivity parameters</h3><p>Parameters appear in the workspace only when they are numeric and declared with <code>mutable=True</code>. Scalar and indexed entries are supported.</p><ul><li>Use meaningful names such as <code>demand_scale</code> or <code>capacity</code>.</li><li>Choose physically valid Start, End, and Step values.</li><li>Only one parameter can be swept at a time.</li></ul></section><section><span className="guide-number">03</span><h3>Single-objective LP or MILP</h3><p>Define exactly one active objective. Continuous, integer, and binary variables are supported when the model remains linear.</p><ul><li>LP models can report imported constraint duals.</li><li>MILP models report variables and constraints, but not duals.</li><li>HiGHS returns the genuine optimal, infeasible, or unbounded status.</li></ul></section><section><span className="guide-number">04</span><h3>Bi-objective models</h3><p>Define two objective components. The app discovers their names and directions, then lets the user choose the primary and secondary objectives.</p><pre><code>{biObjective}</code></pre><p>The Pareto frontier is calculated with repeated ε-constraint solves. After selecting a Pareto point, hybrid sensitivity preserves that normalized preference across the chosen parameter range.</p></section><section><span className="guide-number">05</span><h3>Time-series output</h3><p>Name the time set clearly—such as <code>PERIODS</code>, <code>YEARS</code>, or <code>HOURS</code>—and index variables or expressions by it.</p><ul><li>The app detects the time dimension automatically.</li><li>Other dimensions are collapsed using Sum or Mean.</li><li>Baseline, selected scenario, and the scenario envelope are compared.</li></ul></section><section><span className="guide-number">06</span><h3>Current support boundary</h3><p>Use linear Pyomo models solvable by HiGHS: LP and MILP. General nonlinear expressions, external solver callbacks, and indexed objective containers are not supported.</p><div className="guide-warning"><strong>Model meaning still matters.</strong><span>A mathematically feasible result can be operationally meaningless when a range allows values such as negative demand. Use domain-valid bounds.</span></div></section></div></div></Dialog.Body></Dialog>
+  return <Dialog title="Pyomo model guide" subtitle="How to prepare LP, MILP, bi-objective, and time-indexed models for Sensitivity Studio." onClose={close} className="model-guide-dialog" width="960px" footerButtons={[{ buttonType: "primary", content: "Done", onClick: close }]}><Dialog.Body><div className="model-guide"><div className="guide-callout"><CheckCircleFillIcon size={18} /><div><strong>The samples use the real application contract</strong><p>Every starter model is parsed by Pyomo and verified with HiGHS—nothing in the library is a mocked result.</p></div></div><div className="guide-grid"><section><span className="guide-number">01</span><h3>Required structure</h3><p>Create a concrete model and expose it with the exact variable name <code>model</code>. Imports may use <code>pyomo.environ</code> or named Pyomo components.</p><pre><code>{basicModel}</code></pre></section><section><span className="guide-number">02</span><h3>Sensitivity parameters</h3><p>Parameters appear in the workspace only when they are numeric and declared with <code>mutable=True</code>. Scalar and indexed entries are supported.</p><ul><li>Use meaningful names such as <code>demand_scale</code> or <code>capacity</code>.</li><li>Choose physically valid Start, End, and Step values.</li><li>Only one parameter can be swept at a time.</li></ul></section><section><span className="guide-number">03</span><h3>Single-objective LP or MILP</h3><p>Define exactly one active objective. Continuous, integer, and binary variables are supported when the model remains linear.</p><ul><li>LP models can report imported constraint duals.</li><li>MILP models report variables and constraints, but not duals.</li><li>HiGHS returns the genuine optimal, infeasible, or unbounded status.</li></ul></section><section><span className="guide-number">04</span><h3>Bi-objective models</h3><p>Define two objective components. The app discovers their names and directions, then lets the user choose the primary and secondary objectives.</p><pre><code>{biObjective}</code></pre><p>The Pareto frontier is calculated with repeated ε-constraint solves. After selecting a Pareto point, hybrid sensitivity preserves that normalized preference across the chosen parameter range.</p></section><section><span className="guide-number">05</span><h3>Time-series output</h3><p>Name the time set clearly—such as <code>PERIODS</code>, <code>YEARS</code>, <code>STAGES</code>, or <code>HOURS</code>—and index variables or expressions by it.</p><ul><li>The app detects complete time-related name tokens automatically.</li><li>For a domain-specific name, add <code>model.sensitivity_time_set = "MY_HORIZON"</code>.</li><li>Other dimensions are collapsed using Sum or Mean and named directly in the chart.</li><li>Only scenarios with solved values enter the envelope; missing results remain visible as gaps.</li></ul></section><section><span className="guide-number">06</span><h3>Current support boundary</h3><p>Use linear Pyomo models solvable by HiGHS: LP and MILP. General nonlinear expressions, external solver callbacks, and indexed objective containers are not supported.</p><div className="guide-warning"><strong>Model meaning still matters.</strong><span>A mathematically feasible result can be operationally meaningless when a range allows values such as negative demand. Use domain-valid bounds.</span></div></section></div></div></Dialog.Body></Dialog>
 }
 
 function LoadingScreen() { return <main className="loading-page"><div className="loading-orbit"><div className="orbit-ring one" /><div className="orbit-ring two" /><div className="loading-core"><PulseIcon size={32} /></div></div><Label variant="accent">MODEL INSPECTION</Label><h1>Mapping your model</h1><p>Reading components, discovering mutable parameters, and preparing the solver workspace.</p><div className="loading-steps"><span className="done"><CheckCircleFillIcon /> Parse Python</span><span className="active"><Spinner size="small" /> Inspect parameters</span><span>Prepare workspace</span></div></main> }
@@ -268,7 +268,14 @@ function PrimerMenuSelect({ value, options, onChange, ariaLabel, tone = "light" 
 }
 
 function RangeDialog({ parameter, range, setRange, count, valid, close, save }: { parameter: string; range: SweepRange; setRange: (range: SweepRange) => void; count: number; valid: boolean; close: () => void; save: () => void }) {
-  return <Dialog title={`Lock range · ${parameter}`} subtitle="Define the exact sequence of values used for sensitivity scenarios." onClose={close} width="large" footerButtons={[{ buttonType: "default", content: "Cancel", onClick: close }, { buttonType: "primary", content: "Lock range", onClick: save, disabled: !valid }]}><Dialog.Body><div className="range-dialog"><div className="range-fields"><label><span>Start value</span><TextInput type="number" value={range.start} onChange={(event) => setRange({ ...range, start: Number(event.target.value) })} /></label><label><span>End value</span><TextInput type="number" value={range.end} onChange={(event) => setRange({ ...range, end: Number(event.target.value) })} /></label><label><span>Step size</span><TextInput type="number" min="0.000001" value={range.step} onChange={(event) => setRange({ ...range, step: Number(event.target.value) })} /></label></div><div className={`range-preview ${valid ? "valid" : "invalid"}`}><div><ArrowBothIcon size={18} /><strong>{valid ? `${count} scenarios` : "Invalid range"}</strong></div><span>{valid ? `${range.start}, ${round(range.start + range.step)}, ${round(range.start + range.step * 2)} … ${range.end}` : count > 100 ? "Use a larger step; the maximum is 100 scenarios." : "End must be above start and step must be positive."}</span></div></div></Dialog.Body></Dialog>
+  const warning = suspiciousRangeWarning(parameter, range)
+  return <Dialog title={`Lock range · ${parameter}`} subtitle="Define the exact sequence of values used for sensitivity scenarios." onClose={close} width="large" footerButtons={[{ buttonType: "default", content: "Cancel", onClick: close }, { buttonType: "primary", content: "Lock range", onClick: save, disabled: !valid }]}><Dialog.Body><div className="range-dialog"><div className="range-fields"><label><span>Start value</span><TextInput type="number" value={range.start} onChange={(event) => setRange({ ...range, start: Number(event.target.value) })} /></label><label><span>End value</span><TextInput type="number" value={range.end} onChange={(event) => setRange({ ...range, end: Number(event.target.value) })} /></label><label><span>Step size</span><TextInput type="number" min="0.000001" value={range.step} onChange={(event) => setRange({ ...range, step: Number(event.target.value) })} /></label></div><div className={`range-preview ${valid ? "valid" : "invalid"}`}><div><ArrowBothIcon size={18} /><strong>{valid ? `${count} scenarios` : "Invalid range"}</strong></div><span>{valid ? `${range.start}, ${round(range.start + range.step)}, ${round(range.start + range.step * 2)} … ${range.end}` : count > 100 ? "Use a larger step; the maximum is 100 scenarios." : "End must be above start and step must be positive."}</span></div>{warning && <div className="semantic-range-warning"><span>!</span><p><strong>Check the model meaning.</strong>{warning}</p></div>}</div></Dialog.Body></Dialog>
+}
+
+function suspiciousRangeWarning(parameter: string, range: SweepRange) {
+  const nonnegativeMeaning = /(scale|factor|ratio|rate|demand|capacity|cost|price|emission|limit|budget|supply)/i.test(parameter)
+  if (range.start < 0 && nonnegativeMeaning) return ` This range includes negative values for ${parameter}. The solver may accept them even when they are not physically meaningful.`
+  return null
 }
 
 function ParetoResultsPage({ pareto, sensitivity, selected, detail, setSelected, setDetail, parameters, ranges, running, runHybridSweep, backToFrontier, goParameters }: { pareto: ParetoResult | null; sensitivity: ParetoSensitivityResult | null; selected: ParetoPoint | null; detail: ParetoPoint | ParetoScenario | null; setSelected: (point: ParetoPoint) => void; setDetail: (point: ParetoPoint | ParetoScenario) => void; parameters: Parameter[]; ranges: Record<string, SweepRange>; running: boolean; runHybridSweep: (parameter: string, range: SweepRange) => void; backToFrontier: () => void; goParameters: () => void }) {
@@ -279,6 +286,7 @@ function ParetoResultsPage({ pareto, sensitivity, selected, detail, setSelected,
   const [hybridRange, setHybridRange] = useState<SweepRange>(() => ranges[initialHybridParameter] ?? suggestedSweepRange(initialHybridValue))
   const hybridCount = hybridRange.step > 0 && hybridRange.end >= hybridRange.start ? Math.floor((hybridRange.end - hybridRange.start) / hybridRange.step) + 1 : 0
   const hybridRangeValid = !!hybridParameter && hybridCount >= 2 && hybridCount <= 30
+  const hybridRangeWarning = suspiciousRangeWarning(hybridParameter, hybridRange)
   const chooseHybridParameter = (name: string) => {
     const value = parameters.find((parameter) => parameter.name === name)?.value ?? 0
     setHybridParameter(name)
@@ -331,6 +339,7 @@ function ParetoResultsPage({ pareto, sensitivity, selected, detail, setSelected,
       <div className="hybrid-selected-point"><span>Selected compromise</span><strong>Pareto {String(selected.index).padStart(2, "0")}</strong><small>{(selected.position * 100).toFixed(0)}% ε preference</small></div>
       <label className="hybrid-field"><span>Parameter</span><PrimerMenuSelect ariaLabel="Sensitivity parameter" tone="dark" value={hybridParameter} options={parameters.map((parameter) => ({ value: parameter.name, label: parameter.name, description: formatNumber(parameter.value) }))} onChange={chooseHybridParameter} /></label>
       <div className="hybrid-range-fields"><HybridNumberField label="Start" value={hybridRange.start} nudge={Math.max(Math.abs(hybridRange.step), 0.001)} onChange={(value) => setHybridRange({ ...hybridRange, start: value })} /><HybridNumberField label="End" value={hybridRange.end} nudge={Math.max(Math.abs(hybridRange.step), 0.001)} onChange={(value) => setHybridRange({ ...hybridRange, end: value })} /><HybridNumberField label="Step" value={hybridRange.step} nudge={Math.max(Math.abs(hybridRange.step) / 10, 0.001)} min={0.001} onChange={(value) => setHybridRange({ ...hybridRange, step: value })} /></div>
+      {hybridRangeWarning && <div className="hybrid-range-warning"><span>!</span><p>{hybridRangeWarning}</p></div>}
       <div className={`hybrid-run-summary ${hybridRangeValid ? "valid" : "invalid"}`}><strong>{hybridRangeValid ? hybridCount : "—"}</strong><span>{hybridRangeValid ? "compromise-preserving scenarios" : hybridCount > 30 ? "Maximum 30 scenarios" : "Enter a valid increasing range"}</span></div>
       <Button className="hybrid-run-button" variant="primary" leadingVisual={PulseIcon} onClick={() => runHybridSweep(hybridParameter, hybridRange)} disabled={running || !hybridRangeValid}>{running ? "Running…" : "Run hybrid sweep"}</Button>
       <p className="hybrid-config-note">Each scenario preserves this Pareto preference while changing the selected parameter.</p>
@@ -413,7 +422,16 @@ function ResultsPage({ result, sensitivity, best, rows, page, pageCount, setPage
 type TemporalView = "value" | "delta" | "percent"
 type TemporalAggregation = "value" | "mean"
 type TemporalScenario = ScenarioResult | ParetoScenario
-type TemporalChartDatum = { period: string | number; baseline: number | null; selected: number | null; range: number[] | null }
+type TemporalChartDatum = {
+  period: string | number
+  baseline: number | null
+  selected: number | null
+  range: [number, number] | null
+  rangeMin: number | null
+  rangeMax: number | null
+  availableScenarios: number
+  totalScenarios: number
+}
 
 function TemporalComparison({ baseline, scenarios, selected, parameter }: { baseline: SolveResult; scenarios: TemporalScenario[]; selected: TemporalScenario | null; parameter: string }) {
   const [metricName, setMetricName] = useState("")
@@ -440,11 +458,18 @@ function TemporalComparison({ baseline, scenarios, selected, parameter }: { base
       .map((scenario) => transform(readPoint(scenario, basePoint.period), base))
       .filter((value): value is number => value !== null)
     const selectedValue = transform(readPoint(selected, basePoint.period), base)
+    const range: [number, number] | null = scenarioValues.length
+      ? [Math.min(...scenarioValues), Math.max(...scenarioValues)]
+      : null
     return {
       period: basePoint.period,
       baseline: view === "value" ? base : base === null ? null : 0,
       selected: selectedValue,
-      range: scenarioValues.length ? [Math.min(...scenarioValues), Math.max(...scenarioValues)] : null,
+      range,
+      rangeMin: range?.[0] ?? null,
+      rangeMax: range?.[1] ?? null,
+      availableScenarios: scenarioValues.length,
+      totalScenarios: scenarios.length,
     }
   })
   const selectedValues = chartData.map((point) => point.selected).filter((value): value is number => value !== null)
@@ -455,38 +480,47 @@ function TemporalComparison({ baseline, scenarios, selected, parameter }: { base
   const unit = view === "percent" ? "%" : ""
   const selectedLabel = `Scenario ${String(selected.index).padStart(2, "0")} · ${parameter} ${selected.parameter.toFixed(2)}`
   const collapsed = metric.collapsed_dimensions.length
-    ? `Aggregated across ${metric.collapsed_dimensions.join(" × ")}`
+    ? `${aggregation === "value" ? "Summed" : "Averaged"} across ${metric.collapsed_dimensions.join(" × ")}`
     : "No dimensions collapsed"
+  const coverageCounts = chartData.map((point) => point.availableScenarios)
+  const coverageMin = coverageCounts.length ? Math.min(...coverageCounts) : 0
+  const coverageMax = coverageCounts.length ? Math.max(...coverageCounts) : 0
+  const coverageLabel = coverageMin === coverageMax
+    ? `${coverageMin}/${scenarios.length} scenarios with values`
+    : `${coverageMin}–${coverageMax}/${scenarios.length} scenarios with values per period`
+  const incompleteCoverage = coverageMin < scenarios.length
 
   return <section className="github-panel chart-panel temporal-panel">
     <div className="panel-header temporal-header">
-      <div><h2>Time-series comparison</h2><p>Base trajectory, selected scenario, and the full sensitivity envelope by {metric.time_set}</p></div>
+      <div><h2>Time-series comparison</h2><p>Base trajectory, selected scenario, and the solved sensitivity envelope by {metric.time_set}</p></div>
       <Label variant="accent"><PulseIcon /> Temporal analysis</Label>
     </div>
     <div className="temporal-controls">
       <label><span>Output series</span><PrimerMenuSelect ariaLabel="Output series" value={metric.name} options={candidates.map((candidate) => ({ value: candidate.name, label: candidate.name, description: candidate.kind }))} onChange={setMetricName} /></label>
-      <label><span>Aggregation</span><PrimerMenuSelect ariaLabel="Aggregation" value={aggregation} options={[{ value: "value", label: "Sum", description: "Total" }, { value: "mean", label: "Mean", description: "Average" }]} onChange={(value) => setAggregation(value as TemporalAggregation)} /></label>
+      <label><span>Aggregation</span><PrimerMenuSelect ariaLabel="Aggregation" value={aggregation} options={[{ value: "value", label: "Sum", description: metric.collapsed_dimensions.length ? `Across ${metric.collapsed_dimensions.join(" × ")}` : "Series value" }, { value: "mean", label: "Mean", description: metric.collapsed_dimensions.length ? `Across ${metric.collapsed_dimensions.join(" × ")}` : "Series value" }]} onChange={(value) => setAggregation(value as TemporalAggregation)} /></label>
       <div className="temporal-view-control"><span>Display</span><div>{(["value", "delta", "percent"] as TemporalView[]).map((mode) => <button key={mode} className={view === mode ? "active" : ""} onClick={() => setView(mode)}>{mode === "value" ? "Values" : mode === "delta" ? "Δ" : "Δ%"}</button>)}</div></div>
       <div className="temporal-context"><span>Selected scenario</span><strong>{selectedLabel}</strong><small>{collapsed}</small></div>
     </div>
+    {incompleteCoverage && <div className="temporal-coverage-warning"><span>!</span><p><strong>Partial scenario coverage</strong>{coverageLabel}. Infeasible or unsolved scenarios are excluded from the envelope and shown as gaps.</p></div>}
     <div className="chart-area temporal-chart-area">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData} margin={{ top: 20, right: 34, bottom: 20, left: 28 }}>
-          <defs><linearGradient id="temporalEnvelope" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8250df" stopOpacity={.2} /><stop offset="100%" stopColor="#8250df" stopOpacity={.05} /></linearGradient></defs>
           <CartesianGrid stroke="#d8dee4" strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="period" tickLine={false} axisLine={false} tick={{ fill: "#57606a", fontSize: 11 }} tickMargin={12} padding={{ left: 24, right: 24 }} />
           <YAxis tickLine={false} axisLine={false} domain={["auto", "auto"]} tickFormatter={(value) => `${Number(value).toFixed(2)}${unit}`} tick={{ fill: "#57606a", fontSize: 11 }} tickMargin={12} width={86} />
           <Tooltip cursor={{ stroke: "#8c959f", strokeDasharray: "4 4" }} content={<TemporalChartTooltip timeSet={metric.time_set} selectedLabel={selectedLabel} viewLabel={viewLabel} unit={unit} />} />
-          <Area type="monotone" dataKey="range" stroke="#8250df" strokeWidth={1} fill="url(#temporalEnvelope)" connectNulls />
-          <Line type="monotone" dataKey="baseline" stroke="#24292f" strokeWidth={2.5} strokeDasharray={view === "value" ? undefined : "5 4"} dot={{ r: 3, fill: "#fff", stroke: "#24292f", strokeWidth: 2 }} activeDot={<HybridActiveDot color="#24292f" />} connectNulls />
-          <Line type="monotone" dataKey="selected" stroke="#0969da" strokeWidth={3} dot={{ r: 4, fill: "#fff", stroke: "#0969da", strokeWidth: 2 }} activeDot={<HybridActiveDot color="#0969da" />} connectNulls />
+          <Area type="linear" dataKey="range" stroke="none" fill="#8250df" fillOpacity={.12} connectNulls={false} isAnimationActive={false} />
+          <Line type="linear" dataKey="rangeMin" stroke="#8250df" strokeWidth={1.5} strokeDasharray="4 4" dot={false} activeDot={false} connectNulls={false} />
+          <Line type="linear" dataKey="rangeMax" stroke="#8250df" strokeWidth={1.5} strokeDasharray="4 4" dot={false} activeDot={false} connectNulls={false} />
+          <Line type="linear" dataKey="baseline" stroke="#24292f" strokeWidth={2.5} strokeDasharray={view === "value" ? undefined : "5 4"} dot={{ r: 3, fill: "#fff", stroke: "#24292f", strokeWidth: 2 }} activeDot={<HybridActiveDot color="#24292f" />} connectNulls={false} />
+          <Line type="linear" dataKey="selected" stroke="#0969da" strokeWidth={3} dot={{ r: 4, fill: "#fff", stroke: "#0969da", strokeWidth: 2 }} activeDot={<HybridActiveDot color="#0969da" />} connectNulls={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
     <div className="chart-legend temporal-legend">
       <span><i className="legend-line baseline-line" /> Base model</span>
       <span><i className="legend-line" /> Selected scenario</span>
-      <span><i className="legend-band" /> All scenario range</span>
+      <span className={incompleteCoverage ? "coverage-incomplete" : ""}><i className="legend-band" /> Solved scenario envelope · {coverageLabel}</span>
       <span>{viewLabel}{peakDeviation !== null ? ` · peak |Δ| ${peakDeviation.toFixed(2)}${unit}` : ""}</span>
     </div>
   </section>
@@ -495,7 +529,7 @@ function TemporalComparison({ baseline, scenarios, selected, parameter }: { base
 function TemporalChartTooltip({ active, payload, timeSet, selectedLabel, viewLabel, unit }: { active?: boolean; payload?: ReadonlyArray<{ payload?: TemporalChartDatum }>; timeSet: string; selectedLabel: string; viewLabel: string; unit: string }) {
   const point = payload?.[0]?.payload
   if (!active || !point) return null
-  return <div className="pareto-tooltip temporal-tooltip"><div><span>{viewLabel}</span><strong>{timeSet} {point.period}</strong></div><dl><dt>Base model</dt><dd>{point.baseline === null ? "—" : `${point.baseline.toFixed(2)}${unit}`}</dd><dt>Selected scenario</dt><dd>{point.selected === null ? "—" : `${point.selected.toFixed(2)}${unit}`}</dd><dt>Scenario envelope</dt><dd>{point.range ? `${point.range[0].toFixed(2)}${unit} – ${point.range[1].toFixed(2)}${unit}` : "—"}</dd></dl><p>{selectedLabel}</p></div>
+  return <div className="pareto-tooltip temporal-tooltip"><div><span>{viewLabel}</span><strong>{timeSet} {point.period}</strong></div><dl><dt>Base model</dt><dd>{point.baseline === null ? "—" : `${point.baseline.toFixed(2)}${unit}`}</dd><dt>Selected scenario</dt><dd>{point.selected === null ? "—" : `${point.selected.toFixed(2)}${unit}`}</dd><dt>Scenario envelope</dt><dd>{point.range ? `${point.range[0].toFixed(2)}${unit} – ${point.range[1].toFixed(2)}${unit}` : "No solved value"}</dd><dt>Coverage</dt><dd>{point.availableScenarios}/{point.totalScenarios} scenarios</dd></dl><p>{selectedLabel}</p></div>
 }
 
 function Metric({ icon, label, value, accent }: { icon: ReactNode; label: string; value: string; accent: string }) { return <article className={`hero-metric ${accent}`}><div className="metric-icon">{icon}</div><div><span>{label}</span><strong>{value}</strong></div></article> }
