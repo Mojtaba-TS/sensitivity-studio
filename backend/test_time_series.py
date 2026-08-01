@@ -27,16 +27,20 @@ class TimeSeriesMetadataTests(unittest.TestCase):
 
         series = time_series_metadata(model)
 
-        self.assertEqual(len(series), 1)
-        self.assertEqual(series[0]["collapsed_dimensions"], ["TECH"])
-        self.assertEqual(series[0]["time_detection"], "automatic")
+        self.assertEqual(len(series), 3)
+        aggregate = next(item for item in series if item["series_key"] == "generation")
+        self.assertEqual(aggregate["collapsed_dimensions"], ["TECH"])
+        self.assertEqual(aggregate["time_detection"], "automatic")
         self.assertEqual(
-            series[0]["points"],
+            aggregate["points"],
             [
                 {"period": 1, "value": 30.0, "mean": 15.0, "observation_count": 2},
                 {"period": 2, "value": 80.0, "mean": 40.0, "observation_count": 2},
             ],
         )
+        wind = next(item for item in series if item["selection"] == {"TECH": "wind"})
+        self.assertEqual(wind["display_name"], "generation · TECH=wind")
+        self.assertEqual([point["value"] for point in wind["points"]], [10.0, 30.0])
 
     def test_explicit_time_set_supports_domain_specific_names(self) -> None:
         model = pyo.ConcreteModel()
@@ -47,9 +51,10 @@ class TimeSeriesMetadataTests(unittest.TestCase):
 
         series = time_series_metadata(model)
 
-        self.assertEqual(len(series), 1)
-        self.assertEqual(series[0]["time_set"], "MY_AXIS")
-        self.assertEqual(series[0]["time_detection"], "explicit")
+        self.assertEqual(len(series), 3)
+        aggregate = next(item for item in series if item["series_key"] == "flow")
+        self.assertEqual(aggregate["time_set"], "MY_AXIS")
+        self.assertEqual(aggregate["time_detection"], "explicit")
 
     def test_non_time_candidate_set_is_not_charted(self) -> None:
         model = pyo.ConcreteModel()

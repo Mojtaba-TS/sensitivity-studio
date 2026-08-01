@@ -3,11 +3,14 @@ export type Objective = { name: string; sense: "minimize" | "maximize"; active: 
 export type TimeSeriesPoint = { period: string | number; value: number | null; mean: number | null; observation_count: number }
 export type TimeSeries = {
   name: string
+  series_key: string
+  display_name: string
   kind: "variable" | "expression"
   time_set: string
   aggregation: "sum"
   time_detection: "automatic" | "explicit"
   collapsed_dimensions: string[]
+  selection: Record<string, string | number>
   points: TimeSeriesPoint[]
 }
 export type SolveResult = {

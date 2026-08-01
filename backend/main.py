@@ -174,6 +174,21 @@ def serialize_period(value: Any) -> str | int | float:
     return str(value)
 
 
+def temporal_points(periods: list[Any], buckets: dict[Any, list[float]]) -> list[dict[str, Any]]:
+    points = []
+    for period in periods:
+        values = buckets.get(period, [])
+        points.append(
+            {
+                "period": serialize_period(period),
+                "value": sum(values) if values else None,
+                "mean": sum(values) / len(values) if values else None,
+                "observation_count": len(values),
+            }
+        )
+    return points
+
+
 def time_series_metadata(model: pyo.ConcreteModel) -> list[dict[str, Any]]:
     series: list[dict[str, Any]] = []
     configured_time_set = explicit_time_set_name(model)
@@ -201,6 +216,9 @@ def time_series_metadata(model: pyo.ConcreteModel) -> list[dict[str, Any]]:
             time_dimension = dimensions[time_position]
             periods = list(time_dimension)
             buckets: dict[Any, list[float]] = {period: [] for period in periods}
+            collapsed_positions = [index for index in range(len(dimensions)) if index != time_position]
+            collapsed_dimensions = [dimensions[index].name for index in collapsed_positions]
+            slice_buckets: dict[tuple[Any, ...], dict[Any, list[float]]] = {}
 
             for data in component.values():
                 raw_index = data.index()
@@ -209,35 +227,54 @@ def time_series_metadata(model: pyo.ConcreteModel) -> list[dict[str, Any]]:
                     continue
                 value = pyo.value(data, exception=False)
                 if isinstance(value, (int, float)):
-                    buckets.setdefault(index_tuple[time_position], []).append(float(value))
-
-            points = []
-            for period in periods:
-                values = buckets.get(period, [])
-                points.append(
-                    {
-                        "period": serialize_period(period),
-                        "value": sum(values) if values else None,
-                        "mean": sum(values) / len(values) if values else None,
-                        "observation_count": len(values),
-                    }
-                )
+                    period = index_tuple[time_position]
+                    buckets.setdefault(period, []).append(float(value))
+                    slice_key = tuple(index_tuple[index] for index in collapsed_positions)
+                    if slice_key:
+                        slice_buckets.setdefault(
+                            slice_key,
+                            {period_item: [] for period_item in periods},
+                        ).setdefault(period, []).append(float(value))
 
             series.append(
                 {
                     "name": component.name,
+                    "series_key": component.name,
+                    "display_name": component.name,
                     "kind": kind,
                     "time_set": time_dimension.name,
                     "aggregation": "sum",
                     "time_detection": "explicit" if configured_time_set else "automatic",
-                    "collapsed_dimensions": [
-                        dimension.name
-                        for index, dimension in enumerate(dimensions)
-                        if index != time_position
-                    ],
-                    "points": points,
+                    "collapsed_dimensions": collapsed_dimensions,
+                    "selection": {},
+                    "points": temporal_points(periods, buckets),
                 }
             )
+
+            for slice_key, selected_buckets in list(slice_buckets.items())[:200]:
+                selection = {
+                    dimension_name: serialize_period(index_value)
+                    for dimension_name, index_value in zip(collapsed_dimensions, slice_key)
+                }
+                selection_label = " · ".join(
+                    f"{name.rsplit('.', 1)[-1]}={value}"
+                    for name, value in selection.items()
+                )
+                stable_selection = "|".join(f"{name}={value}" for name, value in selection.items())
+                series.append(
+                    {
+                        "name": component.name,
+                        "series_key": f"{component.name}::{stable_selection}",
+                        "display_name": f"{component.name} · {selection_label}",
+                        "kind": kind,
+                        "time_set": time_dimension.name,
+                        "aggregation": "sum",
+                        "time_detection": "explicit" if configured_time_set else "automatic",
+                        "collapsed_dimensions": [],
+                        "selection": selection,
+                        "points": temporal_points(periods, selected_buckets),
+                    }
+                )
     return series
 
 
