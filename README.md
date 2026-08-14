@@ -14,6 +14,10 @@
   <img alt="React and FastAPI" src="https://img.shields.io/badge/application-React%20%2B%20FastAPI-2da44e" />
 </p>
 
+## Live Demo
+
+[Open Sensitivity Studio](https://sensitivity-studio2.pages.dev/)
+
 ## Motivation
 
 An optimization model rarely ends with one optimal number. Analysts still need to understand what changes when demand moves, capacity tightens, costs rise, objectives conflict, or decisions evolve over time.
